@@ -6,6 +6,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY key_automaton.py .
+COPY templates/ templates/
 
 EXPOSE 8000
 
