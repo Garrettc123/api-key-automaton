@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Key Automaton – Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+    header { background: #1e293b; border-bottom: 1px solid #334155; padding: 1rem 2rem; display: flex; align-items: center; gap: 1rem; }
+    header h1 { font-size: 1.4rem; font-weight: 700; color: #38bdf8; }
+    header .badge { background: #0ea5e9; color: #fff; font-size: 0.7rem; padding: 2px 8px; border-radius: 9999px; font-weight: 600; }
+    main { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .stat-card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 1.2rem; }
+    .stat-card .label { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em; margin-bottom: .4rem; }
+    .stat-card .value { font-size: 2rem; font-weight: 700; }
+    .stat-card .value.green { color: #4ade80; }
+    .stat-card .value.red { color: #f87171; }
+    .stat-card .value.yellow { color: #fbbf24; }
+    .stat-card .value.blue { color: #38bdf8; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+    @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+    .panel { background: #1e293b; border: 1px solid #334155; border-radius: 10px; overflow: hidden; }
+    .panel-header { padding: .75rem 1.25rem; background: #0f172a; font-size: .85rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid #334155; }
+    table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    th { padding: .6rem 1rem; text-align: left; color: #64748b; font-weight: 500; border-bottom: 1px solid #334155; }
+    td { padding: .65rem 1rem; border-bottom: 1px solid #1e293b; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    .badge-status { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: .72rem; font-weight: 600; }
+    .badge-status.active    { background: #14532d; color: #4ade80; }
+    .badge-status.expired   { background: #450a0a; color: #f87171; }
+    .badge-status.compromised { background: #7f1d1d; color: #fca5a5; }
+    .badge-status.inactive  { background: #1e293b; color: #94a3b8; }
+    .badge-alert { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: .72rem; font-weight: 600; }
+    .badge-alert.expired       { background: #450a0a; color: #f87171; }
+    .badge-alert.expiring_soon { background: #713f12; color: #fbbf24; }
+    .badge-alert.rate_limited  { background: #172554; color: #60a5fa; }
+    .badge-alert.compromised   { background: #7f1d1d; color: #fca5a5; }
+    .badge-alert.rotation_due  { background: #1e3a5f; color: #7dd3fc; }
+    .progress-bar { background: #334155; border-radius: 9999px; height: 6px; width: 120px; overflow: hidden; }
+    .progress-bar .fill { height: 100%; border-radius: 9999px; background: #38bdf8; }
+    .progress-bar .fill.warn { background: #fbbf24; }
+    .progress-bar .fill.danger { background: #f87171; }
+    .mono { font-family: monospace; font-size: .78rem; color: #94a3b8; }
+    .empty { padding: 1.5rem; text-align: center; color: #475569; font-size: .85rem; }
+    .plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem; }
+    @media (max-width: 700px) { .plans { grid-template-columns: 1fr; } }
+    .plan-card { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 1.5rem; text-align: center; }
+    .plan-card h3 { font-size: 1rem; color: #94a3b8; margin-bottom: .5rem; }
+    .plan-card .price { font-size: 2rem; font-weight: 800; color: #38bdf8; }
+    .plan-card .price span { font-size: .9rem; color: #64748b; }
+    .section-title { font-size: .95rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 1rem; margin-top: 2rem; }
+    .full-panel { margin-bottom: 2rem; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>⚡ API Key Automaton</h1>
+  <span class="badge">v2.0</span>
+</header>
+
+<main>
+  <!-- Stats Row -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="label">Total Keys</div>
+      <div class="value blue">{{ total_count }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Active Keys</div>
+      <div class="value green">{{ active_count }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Open Alerts</div>
+      <div class="value {% if open_alerts|length > 0 %}red{% else %}green{% endif %}">{{ open_alerts|length }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Rotation Events</div>
+      <div class="value yellow">{{ recent_rotations|length }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Providers</div>
+      <div class="value blue">{{ providers|length }}</div>
+    </div>
+  </div>
+
+  <!-- Billing Plans -->
+  <div class="section-title">💳 Billing Plans</div>
+  <div class="plans">
+    {% for p in plans %}
+    <div class="plan-card">
+      <h3>{{ p.name }}</h3>
+      <div class="price">${{ "%.0f"|format(p.price_usd) }}<span>/mo</span></div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Key Health + Alerts -->
+  <div class="grid2">
+    <!-- Key Health Table -->
+    <div class="panel">
+      <div class="panel-header">🔑 Key Health</div>
+      {% if keys %}
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Provider</th>
+            <th>Env</th>
+            <th>Status</th>
+            <th>Usage</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for key in keys %}
+          <tr>
+            <td>{{ key.name }}</td>
+            <td>{{ key.provider }}</td>
+            <td>{{ key.env }}</td>
+            <td><span class="badge-status {{ key.status }}">{{ key.status }}</span></td>
+            <td>
+              {% set pct = (key.requests_count / key.rate_limit * 100)|int if key.rate_limit > 0 else 0 %}
+              <div class="progress-bar">
+                <div class="fill {% if pct >= 90 %}danger{% elif pct >= 70 %}warn{% endif %}" style="width: {{ [pct, 100]|min }}%"></div>
+              </div>
+              <div class="mono">{{ key.requests_count }} / {{ key.rate_limit }}</div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty">No keys stored yet. POST to /keys to add one.</div>
+      {% endif %}
+    </div>
+
+    <!-- Alerts Panel -->
+    <div class="panel">
+      <div class="panel-header">🚨 Open Alerts</div>
+      {% if open_alerts %}
+      <table>
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Message</th>
+            <th>Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for alert in open_alerts %}
+          <tr>
+            <td><span class="badge-alert {{ alert.type }}">{{ alert.type }}</span></td>
+            <td>{{ alert.message }}</td>
+            <td class="mono">{{ alert.created_at[:19] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty">✅ No open alerts</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Rotation Events + Audit Log -->
+  <div class="grid2">
+    <!-- Rotation Events -->
+    <div class="panel full-panel">
+      <div class="panel-header">🔄 Recent Rotation Events</div>
+      {% if recent_rotations %}
+      <table>
+        <thead>
+          <tr>
+            <th>Key</th>
+            <th>Trigger</th>
+            <th>Rotated At</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ev in recent_rotations %}
+          <tr>
+            <td>{{ ev.key_name }}</td>
+            <td>{{ ev.trigger }}</td>
+            <td class="mono">{{ ev.rotated_at[:19] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty">No rotation events yet</div>
+      {% endif %}
+    </div>
+
+    <!-- Audit Log -->
+    <div class="panel full-panel">
+      <div class="panel-header">📋 Audit Log (last 20)</div>
+      {% if audit_log %}
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Action</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for entry in audit_log|reverse %}
+          <tr>
+            <td class="mono">{{ entry.timestamp[:19] }}</td>
+            <td>{{ entry.action }}</td>
+            <td style="color:#94a3b8;font-size:.8rem;">{{ entry.details }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty">No audit entries yet</div>
+      {% endif %}
+    </div>
+  </div>
+
+</main>
+</body>
+</html>
